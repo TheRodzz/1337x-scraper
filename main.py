@@ -11,9 +11,9 @@ headers = {
 def download_magnet_link(magnet_link):
     try:
         # Use transmission-remote to add the magnet link
-        # command = ['qbittorrent', '--skip-dialog=true', magnet_link]
-        # subprocess.run(command, check=True)
-        os.system(f'qbittorrent --skip-dialog=true {magnet_link}')
+        command = ['qbittorrent', '--skip-dialog=true', magnet_link]
+        subprocess.run(command, check=True)
+        # os.system(f'qbittorrent --skip-dialog=true {magnet_link}')
         print(f"Started download for: {magnet_link}")
     except subprocess.CalledProcessError as e:
         print(f"Error downloading {magnet_link}: {e}")
@@ -30,9 +30,9 @@ def extract_magnet_link(torrent_page_url):
         return magnet_link_element['href']
     return None
 
-def get_links_from_page(pageNum):
+def get_links_from_page(pageNum,query):
     """ Fetch the links from the search page """
-    url = f'{base_url}/search/games/{pageNum}/'
+    url = f'{base_url}/search/{query}/{pageNum}/'
     r = requests.get(url, headers=headers)
     soup = BeautifulSoup(r.content, 'html5lib')
     
@@ -73,7 +73,7 @@ def scrape_torrent_links(query='', max_pages=None):
     # Loop through each page, extract links, and then extract magnet links from those links
     for page in range(1, total_pages + 1):
         print(f"Extracting links from page {page} of {total_pages}...")
-        links = get_links_from_page(page)
+        links = get_links_from_page(page,query)
         
         for link in links:
             print(f"Processing {link}...")
@@ -81,9 +81,8 @@ def scrape_torrent_links(query='', max_pages=None):
             
             if magnet_link:
                 magnet_links.append(magnet_link)
-                print()
-                print(magnet_link)
-                print()
+                print(f'Added link: {magnet_link}')
+                # print(magnet_link)
                 download_magnet_link(magnet_link)
             else:
                 print(f"No magnet link found for {link}")
@@ -93,8 +92,8 @@ def scrape_torrent_links(query='', max_pages=None):
     return magnet_links
 
 # Example usage:
-query = input('Enter search query: ')
-magnet_links = scrape_torrent_links(query,max_pages=2)  # Change or remove the argument to scrape all pages
+q = input('Enter search query: ')
+magnet_links = scrape_torrent_links(query=q, max_pages=None)  # Change or remove the argument to scrape all pages
 
 
 # print(magnet_links)  # You can print or process the list further as needed.
