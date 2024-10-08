@@ -86,7 +86,7 @@ Ensure your virtual environment is activated before running the script.
 Run the script from the command line with the following syntax:
 
 ```
-python torrent_scraper.py <search_query> [options]
+python main.py <search_query> [options]
 ```
 
 ### Command-line Arguments
@@ -101,22 +101,22 @@ python torrent_scraper.py <search_query> [options]
 
 1. Basic search:
    ```
-   python3 torrent_scraper.py "ubuntu 20.04"
+   python3 main.py "ubuntu 20.04"
    ```
 
 2. Limit the search to 3 pages with a maximum of 5 links per page:
    ```
-   python3 torrent_scraper.py "python programming" --max-pages 3 --max-links 5
+   python3 main.py "python programming" --max-pages 3 --max-links 5
    ```
 
 3. Search and automatically download torrents:
    ```
-   python3 torrent_scraper.py "open source games" --download
+   python3 main.py "open source games" --download
    ```
 
 4. Specify a custom output file:
    ```
-   python3 torrent_scraper.py "data science books" --output data_science_torrents.csv
+   python3 main.py "data science books" --output data_science_torrents.csv
    ```
 
 ## Output
