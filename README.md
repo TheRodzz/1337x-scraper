@@ -1,148 +1,188 @@
-# Enhanced Torrent Scraper
+# Torrent Management Suite
 
-This Python script is an advanced torrent scraper that extracts information from the 1337x torrent site. It provides a flexible and efficient way to search for torrents, collect detailed information, and optionally download them.
+A comprehensive Python-based torrent management suite that includes web scraping, automated downloading, and rate limiting functionality for qBittorrent. The suite is designed to handle large-scale torrent downloads safely without overwhelming your system.
+
+## ⚠️ Important: System Protection
+
+The main scraper (`main.py`) can easily find thousands of torrents in a single search. Starting all these downloads simultaneously will:
+- Overwhelm your system resources
+- Potentially crash qBittorrent
+- May crash your entire system
+- Cause network instability
+
+**Always run the rate limiter (`qbit-rate-limiter.py`) before starting mass downloads!**
+
+## Components and Workflow
+
+1. **Scraper** (`main.py`): Finds and collects torrent information
+2. **Rate Limiter** (`qbit-rate-limiter.py`): Prevents system overload
+3. **CSV Processor** (`download-from-csv.py`): Manages batch downloads
+
+### Recommended Usage Pattern
+
+1. Start the rate limiter first:
+   ```bash
+   python qbit-rate-limiter.py
+   ```
+
+2. Then run your searches:
+   ```bash
+   python main.py "search query" --output results.csv
+   ```
+
+3. Optionally process saved results later:
+   ```bash
+   python download-from-csv.py
+   ```
 
 ## Features
 
-- Search for torrents based on user-provided queries
-- Concurrent scraping of multiple pages for improved performance
-- Extraction of detailed torrent information (title, size, seeders, leechers, magnet link)
-- Optional automatic downloading of torrents using qBittorrent
-- CSV output for easy data analysis and processing
-- Configurable maximum number of pages and links per page
-- Progress bar to track scraping progress
-- Robust error handling and logging
-- Rate limiting to avoid overloading the target site
+- 🔍 Torrent site scraping with support for 1337x (extensible to other sites)
+- 🛡️ System protection through intelligent rate limiting
+- 📥 Automated torrent downloading with qBittorrent integration
+- 🚦 Queue management and download prioritization
+- 📊 CSV export of search results
+- ⚡ Asynchronous and concurrent processing
+- 🔄 Batch processing of magnet links
 
-## Requirements
+## Prerequisites
 
-- Python 3.6+
-- Required Python packages (listed in `requirements.txt`)
-- qBittorrent (optional, for automatic downloading)
+- Python 3.7+
+- qBittorrent with Web UI enabled
+- Required Python packages:
+  ```
+  requests
+  beautifulsoup4
+  qbittorrent-api
+  aiofiles
+  tqdm
+  ```
 
-## Installation and Setup
-
-You can set up this project using either standard Python virtual environments or Anaconda. Choose the method you prefer.
-
-### Option 1: Standard Python Virtual Environment
+## Installation
 
 1. Clone the repository:
-   ```
+   ```bash
    git clone https://github.com/TheRodzz/1337x-scraper.git
    cd 1337x-scraper
    ```
 
-2. Create a virtual environment:
-   ```
-   python -m venv venv
-   ```
-
-3. Activate the virtual environment:
-   - On Windows:
-     ```
-     venv\Scripts\activate
-     ```
-   - On macOS and Linux:
-     ```
-     source venv/bin/activate
-     ```
-
-4. Install the required packages:
-   ```
-   pip3 install -r requirements.txt
+2. Install required packages:
+   ```bash
+   pip install -r requirements.txt
    ```
 
-### Option 2: Anaconda Environment
+3. Configure qBittorrent:
+   - Enable Web UI (Tools -> Preferences -> Web UI)
+   - Set up username and password
+   - Note down the port number (default: 8080)
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/torrent-scraper.git
-   cd torrent-scraper
-   ```
+## Component Details
 
-2. Create a new Anaconda environment:
-   ```
-   conda create --name torrent-scraper python=3.12
-   ```
+### 1. Rate Limiter (`qbit-rate-limiter.py`)
 
-3. Activate the environment:
-   ```
-   conda activate torrent-scraper
-   ```
+**Critical for system stability!** The rate limiter:
+- Prevents system crashes from mass downloads
+- Manages download queue intelligently
+- Prioritizes downloads based on progress and age
+- Maintains system responsiveness
 
-4. Install the required packages:
-   ```
-   conda install --yes --file requirements.txt
-   ```
-
-### Optional: Install qBittorrent
-
-If you plan to use the automatic download feature, install qBittorrent from the [official website](https://www.qbittorrent.org/download).
-
-## Usage
-
-Ensure your virtual environment is activated before running the script.
-
-Run the script from the command line with the following syntax:
-
+Configuration (edit in script):
+```bash
+python qbit-rate-limiter.py
 ```
-python main.py <search_query> [options]
+- `max_active_downloads`: Maximum concurrent active downloads (recommended: 10-15)
+- `max_resumed_torrents`: Maximum number of resumed torrents (recommended: 20-30)
+- `host`: qBittorrent Web UI host (default: localhost:8081)
+- `username`: Web UI username
+- `password`: Web UI password
+
+### 2. Torrent Scraping (`main.py`)
+
+Search and collect torrent information:
+```bash
+python main.py "search query" --max-pages 5 --max-links 10 --output results.csv
 ```
 
-### Command-line Arguments
+Optionally, you can start downloading torrents right away:
+```bash
+python main.py "search query" --max-pages 5 --max-links 10 --download
+```
 
+Options:
 - `<search_query>`: The search term for finding torrents (required)
 - `--max-pages`: Maximum number of pages to scrape (optional)
 - `--max-links`: Maximum number of links to process per page (optional)
 - `--download`: Enable automatic downloading of torrents (optional)
 - `--output`: Specify the output CSV file name (default: results.csv)
 
-### Examples
+### 3. CSV Processor (`download-from-csv.py`)
 
-1. Basic search:
-   ```
-   python3 main.py "ubuntu 20.04"
-   ```
+For batch processing saved magnet links:
+```bash
+python download-from-csv.py
+```
 
-2. Limit the search to 3 pages with a maximum of 5 links per page:
-   ```
-   python3 main.py "python programming" --max-pages 3 --max-links 5
-   ```
+Features:
+- Processes CSV files containing magnet links
+- Adds torrents to qBittorrent in controlled batches
+- Works with rate limiter to prevent overload
 
-3. Search and automatically download torrents:
-   ```
-   python3 main.py "open source games" --download
-   ```
+## System Requirements
 
-4. Specify a custom output file:
-   ```
-   python3 main.py "data science books" --output data_science_torrents.csv
-   ```
+Due to the potential for handling large numbers of torrents, recommended minimum specifications:
+- 8GB RAM
+- Multicore CPU
+- Stable internet connection
+- Sufficient storage space for downloads
 
-## Output
+## Error Handling
 
-The script generates a CSV file (default: `results.csv`) with the following columns:
+The suite includes comprehensive error handling for:
+- Network connectivity issues
+- qBittorrent Web UI availability
+- Invalid magnet links
+- Rate limiting and queue management
+- File I/O operations
+- System resource monitoring
 
-- Title
-- Magnet Link
-- Size
-- Seeders
-- Leechers
+## Logging
 
-## Caution
+All components include detailed logging with:
+- Timestamp
+- Operation status
+- Error details
+- Progress information
+- Resource usage metrics
 
-- Be aware of the legal implications of downloading copyrighted material in your jurisdiction.
-- Use this script responsibly and ethically.
-- Respect the target website's terms of service and avoid overloading their servers.
+## Best Practices
 
-## Disclaimer
-
-This script is for educational purposes only. The authors are not responsible for any misuse or any consequences resulting from the use of this software.
+1. **Always run the rate limiter first**
+2. Start with small searches to test system behavior
+3. Monitor system resources during operation
+4. Adjust rate limiter settings based on your system capabilities
+5. Use the CSV processor for large batches of downloads
+6. Keep qBittorrent updated to latest version
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome. Feel free to check [issues page](https://github.com/TheRodzz/1337x-scraper/issues) if you want to contribute.
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## Safety and Legal Considerations
+
+This tool is intended for legal torrent downloads only. Users are responsible for:
+- Complying with local laws and regulations
+- Respecting copyright and intellectual property rights
+- Using appropriate security measures
+- Following acceptable use policies
 
 ## License
 
-[MIT](https://choosealicense.com/licenses/mit/)
+[MIT License](LICENSE)
+
+## Disclaimer
+
+This software is provided for educational purposes only. Users are responsible for ensuring compliance with local laws and regulations regarding torrent downloads.

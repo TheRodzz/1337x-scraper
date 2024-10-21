@@ -171,3 +171,4 @@ if __name__ == "__main__":
     site = Torrent1337x()  # You can swap this with any other torrent site class you create
     results = scrape_torrent_links(site, query=args.query, max_pages=args.max_pages, max_links_per_page=args.max_links)
     save_to_csv(results, args.output)
+    
