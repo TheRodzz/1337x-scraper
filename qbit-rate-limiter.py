@@ -129,7 +129,6 @@ class QBitTorrentManager:
             active_downloads = []
             resumed_torrents = []
             paused_torrents = []
-
             for torrent in torrents:
                 torrent_info = {
                     'hash': torrent.hash,
@@ -137,14 +136,13 @@ class QBitTorrentManager:
                     'progress': torrent.progress,
                     'size': torrent.size
                 }
-
+                
                 if torrent.state in ['downloading', 'stalledDL']:
                     active_downloads.append(torrent_info)
-                if torrent.state != 'pausedDL':
+                if torrent.state not in ['pausedDL', 'stalledUP']:
                     resumed_torrents.append(torrent_info)
                 else:
                     paused_torrents.append(torrent_info)
-
             return {
                 'active_downloads': active_downloads,
                 'resumed_torrents': resumed_torrents,
@@ -215,8 +213,8 @@ def main():
         host='localhost:8081',       # Change this to match your setup
         username='admin',            # Change this to match your setup
         password='adminadmin',       # Change this to match your setup
-        max_active_downloads=10,
-        max_resumed_torrents=20,
+        max_active_downloads=20,
+        max_resumed_torrents=40,
         max_retries=3,
         retry_delay=5
     )
@@ -225,7 +223,7 @@ def main():
     try:
         while True:
             manager.manage_torrents()
-            time.sleep(30)  # Check every 30 seconds
+            time.sleep(10)  # Check every 30 seconds
     except KeyboardInterrupt:
         logger.info("Stopping torrent manager...")
 
