@@ -38,20 +38,16 @@ class QBitTorrentManager:
         # Initial connection
         self.connect_to_client()
 
+    # [Previous connection methods remain unchanged]
     def verify_web_ui_access(self) -> bool:
         """Verify if qBittorrent Web UI is accessible with credentials."""
         try:
-            # Format the login URL
             base_url = f"http://{self.host}"
             login_url = f"{base_url}/api/v2/auth/login"
-
-            # Prepare login data
             login_data = {
                 'username': self.username,
                 'password': self.password
             }
-
-            # Try to login
             session = requests.Session()
             response = session.post(login_url, data=login_data, timeout=5)
 
@@ -87,7 +83,7 @@ class QBitTorrentManager:
         while retries < self.max_retries:
             try:
                 self.qbt_client = qbittorrentapi.Client(
-                    host=f"http://{self.host}",  # Added http:// prefix
+                    host=f"http://{self.host}",
                     username=self.username,
                     password=self.password,
                     VERIFY_WEBUI_CERTIFICATE=False,
@@ -122,35 +118,59 @@ class QBitTorrentManager:
     def get_torrent_states(self) -> Dict[str, List]:
         """Get current states of all torrents."""
         if not self.check_connection():
-            return {'active_downloads': [], 'resumed_torrents': [], 'paused_torrents': []}
+            return {
+                'active_downloads': [],
+                'resumed_incomplete': [],
+                'paused_incomplete': [],
+                'completed_torrents': []
+            }
 
         try:
             torrents = self.qbt_client.torrents_info()
             active_downloads = []
-            resumed_torrents = []
-            paused_torrents = []
+            resumed_incomplete = []
+            paused_incomplete = []
+            completed_torrents = []
+            
             for torrent in torrents:
                 torrent_info = {
                     'hash': torrent.hash,
                     'added_on': torrent.added_on,
                     'progress': torrent.progress,
-                    'size': torrent.size
+                    'size': torrent.size,
+                    'state': torrent.state
                 }
+
+                # Check if torrent is completed or seeding
+                is_completed = (torrent.progress == 1.0 or 
+                              torrent.state in ['uploading', 'stalledUP', 'forcedUP', 'queuedUP', 'pausedUP'])
                 
-                if torrent.state in ['downloading', 'stalledDL']:
-                    active_downloads.append(torrent_info)
-                if torrent.state not in ['pausedDL', 'stalledUP']:
-                    resumed_torrents.append(torrent_info)
+                if is_completed:
+                    completed_torrents.append(torrent_info)
                 else:
-                    paused_torrents.append(torrent_info)
+                    # Only count incomplete torrents towards limits
+                    if torrent.state in ['downloading', 'stalledDL']:
+                        active_downloads.append(torrent_info)
+                    
+                    if torrent.state not in ['pausedDL', 'error', 'missingFiles']:
+                        resumed_incomplete.append(torrent_info)
+                    else:
+                        paused_incomplete.append(torrent_info)
+                    
             return {
                 'active_downloads': active_downloads,
-                'resumed_torrents': resumed_torrents,
-                'paused_torrents': paused_torrents
+                'resumed_incomplete': resumed_incomplete,
+                'paused_incomplete': paused_incomplete,
+                'completed_torrents': completed_torrents
             }
         except Exception as e:
             logger.error(f"Error getting torrent states: {str(e)}")
-            return {'active_downloads': [], 'resumed_torrents': [], 'paused_torrents': []}
+            return {
+                'active_downloads': [],
+                'resumed_incomplete': [],
+                'paused_incomplete': [],
+                'completed_torrents': []
+            }
 
     def sort_torrents(self, torrents: List[Dict]) -> List[Dict]:
         """Sort torrents by priority (least complete first, then oldest)."""
@@ -161,10 +181,11 @@ class QBitTorrentManager:
         try:
             states = self.get_torrent_states()
             active_downloads = states['active_downloads']
-            resumed_torrents = states['resumed_torrents']
-            paused_torrents = states['paused_torrents']
+            resumed_incomplete = states['resumed_incomplete']
+            paused_incomplete = states['paused_incomplete']
+            completed_torrents = states['completed_torrents']
 
-            # Handle exceeding limits - pause newest torrents first
+            # Handle exceeding limits - pause newest incomplete torrents first
             if len(active_downloads) > self.max_active_downloads:
                 torrents_to_pause = sorted(
                     active_downloads[self.max_active_downloads:],
@@ -175,9 +196,9 @@ class QBitTorrentManager:
                 )
                 logger.info(f"Paused {len(torrents_to_pause)} torrents to maintain active download limit")
 
-            if len(resumed_torrents) > self.max_resumed_torrents:
+            if len(resumed_incomplete) > self.max_resumed_torrents:
                 torrents_to_pause = sorted(
-                    resumed_torrents[self.max_resumed_torrents:],
+                    resumed_incomplete[self.max_resumed_torrents:],
                     key=lambda x: (-x['progress'], -x['added_on'])
                 )
                 self.qbt_client.torrents_pause(
@@ -187,10 +208,10 @@ class QBitTorrentManager:
 
             # Handle under limits - resume oldest, least complete torrents first
             space_for_active = self.max_active_downloads - len(active_downloads)
-            space_for_resumed = self.max_resumed_torrents - len(resumed_torrents)
+            space_for_resumed = self.max_resumed_torrents - len(resumed_incomplete)
 
-            if space_for_resumed > 0 and paused_torrents:
-                sorted_paused = self.sort_torrents(paused_torrents)
+            if space_for_resumed > 0 and paused_incomplete:
+                sorted_paused = self.sort_torrents(paused_incomplete)
                 torrents_to_resume = sorted_paused[:space_for_resumed]
                 self.qbt_client.torrents_resume(
                     torrent_hashes=[t['hash'] for t in torrents_to_resume]
@@ -199,8 +220,9 @@ class QBitTorrentManager:
 
             logger.info(
                 f"Status: Active downloads: {len(active_downloads)}/{self.max_active_downloads}, "
-                f"Resumed torrents: {len(resumed_torrents)}/{self.max_resumed_torrents}, "
-                f"Paused torrents: {len(paused_torrents)}"
+                f"Resumed incomplete: {len(resumed_incomplete)}/{self.max_resumed_torrents}, "
+                f"Paused incomplete: {len(paused_incomplete)}, "
+                f"Completed/Seeding: {len(completed_torrents)}"
             )
 
         except Exception as e:
@@ -208,22 +230,20 @@ class QBitTorrentManager:
 
 def main():
     """Main function to run the torrent manager."""
-    # Create manager instance with your actual qBittorrent Web UI settings
     manager = QBitTorrentManager(
-        host='localhost:8081',       # Change this to match your setup
-        username='admin',            # Change this to match your setup
-        password='adminadmin',       # Change this to match your setup
-        max_active_downloads=20,
-        max_resumed_torrents=40,
+        host='localhost:8081',
+        username='admin',
+        password='adminadmin',
+        max_active_downloads=10,
+        max_resumed_torrents=20,
         max_retries=3,
         retry_delay=5
     )
 
-    # Run continuous monitoring loop
     try:
         while True:
             manager.manage_torrents()
-            time.sleep(10)  # Check every 30 seconds
+            time.sleep(10)  # Check every 10 seconds
     except KeyboardInterrupt:
         logger.info("Stopping torrent manager...")
 
