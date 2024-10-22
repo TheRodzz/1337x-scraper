@@ -14,7 +14,18 @@ from requests.packages.urllib3.util.retry import Retry
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
+def get_value_by_label(items, label):
+        for item in items:
+            strong = item.find('strong')
+            if strong and strong.text.strip() == label:
+                span = item.find('span')
+                if span:
+                    # Handle special case for Uploaded By which contains nested elements
+                    if label == 'Uploaded By':
+                        link = span.find('a')
+                        return link.text.strip() if link else 'N/A'
+                    return span.text.strip()
+        return 'N/A'
 # Base Site class
 class Site(ABC):  # Abstract Base Class (ABC)
     def __init__(self, base_url, headers):
@@ -54,14 +65,34 @@ class Torrent1337x(Site):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
         }
         super().__init__(base_url, headers)
-
+    
     def extract_torrent_info(self, soup, magnet_link):
         info = {}
-        info['title'] = soup.find('h1', class_='torrent-title').text.strip() if soup.find('h1', class_='torrent-title') else 'N/A'
-        info['size'] = soup.find('span', class_='torrent-size').text.strip() if soup.find('span', class_='torrent-size') else 'N/A'
-        info['seeders'] = soup.find('span', class_='seeds').text.strip() if soup.find('span', class_='seeds') else 'N/A'
-        info['leechers'] = soup.find('span', class_='leeches').text.strip() if soup.find('span', class_='leeches') else 'N/A'
+        
+        # Find all list items
+        list_items = soup.find_all('ul', class_='list')
+        
+        # Helper function to find value by label
+
+        
+        # Flatten all list items
+        all_items = []
+        for ul in list_items:
+            all_items.extend(ul.find_all('li'))
+        
+        # Extract information
+        info['category'] = get_value_by_label(all_items, 'Category')
+        info['type'] = get_value_by_label(all_items, 'Type')
+        info['language'] = get_value_by_label(all_items, 'Language')
+        info['size'] = get_value_by_label(all_items, 'Total size')
+        info['uploaded_by'] = get_value_by_label(all_items, 'Uploaded By')
+        info['downloads'] = get_value_by_label(all_items, 'Downloads')
+        info['last_checked'] = get_value_by_label(all_items, 'Last checked')
+        info['date_uploaded'] = get_value_by_label(all_items, 'Date uploaded')
+        info['seeders'] = get_value_by_label(all_items, 'Seeders')
+        info['leechers'] = get_value_by_label(all_items, 'Leechers')
         info['magnet_link'] = magnet_link
+        
         return info
 
     def extract_magnet_link(self, torrent_page_url):
@@ -146,16 +177,34 @@ def scrape_torrent_links(site, query='', max_pages=None, max_links_per_page=None
 
 def save_to_csv(results, filename):
     with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['Title', 'Magnet Link', 'Size', 'Seeders', 'Leechers']
+        fieldnames = [
+            'Category',
+            'Type',
+            'Language',
+            'Size',
+            'Uploaded By',
+            'Downloads',
+            'Last Checked',
+            'Date Uploaded',
+            'Seeders',
+            'Leechers',
+            'Magnet Link'
+        ]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for info in results:
             writer.writerow({
-                'Title': info['title'],
-                'Magnet Link': info['magnet_link'],
+                'Category': info['category'],
+                'Type': info['type'],
+                'Language': info['language'],
                 'Size': info['size'],
+                'Uploaded By': info['uploaded_by'],
+                'Downloads': info['downloads'],
+                'Last Checked': info['last_checked'],
+                'Date Uploaded': info['date_uploaded'],
                 'Seeders': info['seeders'],
-                'Leechers': info['leechers']
+                'Leechers': info['leechers'],
+                'Magnet Link': info['magnet_link']
             })
     logger.info(f"Results saved to {filename}")
 
