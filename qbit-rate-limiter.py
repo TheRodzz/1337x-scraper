@@ -131,7 +131,7 @@ class QBitTorrentManager:
             resumed_incomplete = []
             paused_incomplete = []
             completed_torrents = []
-            
+
             for torrent in torrents:
                 torrent_info = {
                     'hash': torrent.hash,
@@ -142,21 +142,21 @@ class QBitTorrentManager:
                 }
 
                 # Check if torrent is completed or seeding
-                is_completed = (torrent.progress == 1.0 or 
+                is_completed = (torrent.progress == 1.0 or
                               torrent.state in ['uploading', 'stalledUP', 'forcedUP', 'queuedUP', 'pausedUP'])
-                
+
                 if is_completed:
                     completed_torrents.append(torrent_info)
                 else:
                     # Only count incomplete torrents towards limits
                     if torrent.state in ['downloading', 'stalledDL']:
                         active_downloads.append(torrent_info)
-                    
+
                     if torrent.state not in ['pausedDL', 'error', 'missingFiles']:
                         resumed_incomplete.append(torrent_info)
                     else:
                         paused_incomplete.append(torrent_info)
-                    
+
             return {
                 'active_downloads': active_downloads,
                 'resumed_incomplete': resumed_incomplete,
@@ -234,8 +234,8 @@ def main():
         host='localhost:8081',
         username='admin',
         password='adminadmin',
-        max_active_downloads=10,
-        max_resumed_torrents=20,
+        max_active_downloads=20,
+        max_resumed_torrents=40,
         max_retries=3,
         retry_delay=5
     )

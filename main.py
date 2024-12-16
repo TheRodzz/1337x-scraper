@@ -34,7 +34,7 @@ class Site(ABC):  # Abstract Base Class (ABC)
         self.session = requests.Session()
         retries = Retry(total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
         self.session.mount('https://', HTTPAdapter(max_retries=retries))
-    
+
     def get(self, url):
         try:
             response = self.session.get(url, headers=self.headers)
@@ -47,11 +47,11 @@ class Site(ABC):  # Abstract Base Class (ABC)
     @abstractmethod
     def extract_magnet_link(self, torrent_page_url):
         raise NotImplementedError("This method should be implemented by subclasses.")
-    
+
     @abstractmethod
     def get_links_from_page(self, query, page_num):
         raise NotImplementedError("This method should be implemented by subclasses.")
-    
+
     @abstractmethod
     def generate_search_url(self, query, page_num):
         """Generate the search URL for the specific site."""
@@ -65,21 +65,21 @@ class Torrent1337x(Site):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
         }
         super().__init__(base_url, headers)
-    
+
     def extract_torrent_info(self, soup, magnet_link):
         info = {}
-        
+
         # Find all list items
         list_items = soup.find_all('ul', class_='list')
-        
+
         # Helper function to find value by label
 
-        
+
         # Flatten all list items
         all_items = []
         for ul in list_items:
             all_items.extend(ul.find_all('li'))
-        
+
         # Extract information
         info['category'] = get_value_by_label(all_items, 'Category')
         info['type'] = get_value_by_label(all_items, 'Type')
@@ -92,7 +92,7 @@ class Torrent1337x(Site):
         info['seeders'] = get_value_by_label(all_items, 'Seeders')
         info['leechers'] = get_value_by_label(all_items, 'Leechers')
         info['magnet_link'] = magnet_link
-        
+
         return info
 
     def extract_magnet_link(self, torrent_page_url):
@@ -130,7 +130,7 @@ class Torrent1337x(Site):
 
 def download_magnet_link(magnet_link):
     try:
-        command = ['qbittorrent', '--skip-dialog=true', magnet_link]
+        command = ['qbittorrent', '--skip-dialog=true','--add-paused=true', magnet_link]
         subprocess.run(command, check=True)
         logger.info(f"Started download for: {magnet_link}")
     except subprocess.CalledProcessError as e:
@@ -155,11 +155,11 @@ def process_page(site, query, page, max_links=None):
 def scrape_torrent_links(site, query='', max_pages=None, max_links_per_page=None):
     if not query:
         return []
-    
+
     r = site.get(site.generate_search_url(query, 1))
     total_pages = site.get_total_pages(r) if r else 1  # Make sure r is the soup object
     total_pages = min(total_pages, max_pages or float('inf'))
-    
+
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         future_to_page = {executor.submit(partial(process_page, site, query, page, max_links_per_page)): page for page in range(1, total_pages + 1)}
@@ -170,7 +170,7 @@ def scrape_torrent_links(site, query='', max_pages=None, max_links_per_page=None
                 logger.info(f"Completed processing page {page}")
             except Exception as exc:
                 logger.error(f'Page {page} generated an exception: {exc}')
-    
+
     logger.info(f"Extracted {len(results)} torrent infos.")
     return results
 
@@ -220,4 +220,3 @@ if __name__ == "__main__":
     site = Torrent1337x()  # You can swap this with any other torrent site class you create
     results = scrape_torrent_links(site, query=args.query, max_pages=args.max_pages, max_links_per_page=args.max_links)
     save_to_csv(results, args.output)
-    
